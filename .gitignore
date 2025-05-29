@@ -1,0 +1,6 @@
+train/
+test/
+.venv/
+runs/
+data/
+.DS_Store
