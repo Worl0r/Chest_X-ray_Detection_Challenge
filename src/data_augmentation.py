@@ -13,6 +13,10 @@ import torch
 
 
 import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.use("WebAgg")
+
 
 def show_image_with_bboxes(images, bboxes, labels, classes):
     """
@@ -50,8 +54,16 @@ def show_image_with_bboxes(images, bboxes, labels, classes):
             color = (0, 255, 0)  # Vert
 
             cv2.rectangle(img_i, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(img_i, classes[int(label)-1], (x, y - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 1, lineType=cv2.LINE_AA)
+            cv2.putText(
+                img_i,
+                classes[int(label) - 1],
+                (x, y - 5),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                color,
+                1,
+                lineType=cv2.LINE_AA,
+            )
 
         plt.subplot(2, (n + 1) // 2, i + 1)
         plt.imshow(img_i)
@@ -79,24 +91,41 @@ def list_files_in_folder(folder_path, extensions=None):
                 files.append(f)
     return files
 
+
 # === 1. Charger les labels & bboxes ===
 
-def load_train_dataset():
-    df_annots = pd.read_csv("train.csv")  # colonnes: Image Index, Finding Label, Bbox [x, y, w, h]
 
-    df_grouped = df_annots.groupby("Image Index").apply(lambda g: {
-        "labels": list(g["Finding Label"]),
-        "bboxes": g[["Bbox [x", "y", "w", "h]"]].values.tolist()
-    }).reset_index(name="annotation")
+def load_train_dataset():
+    df_annots = pd.read_csv(
+        "train.csv"
+    )  # colonnes: Image Index, Finding Label, Bbox [x, y, w, h]
+
+    df_grouped = (
+        df_annots.groupby("Image Index")
+        .apply(
+            lambda g: {
+                "labels": list(g["Finding Label"]),
+                "bboxes": g[["Bbox [x", "y", "w", "h]"]].values.tolist(),
+            }
+        )
+        .reset_index(name="annotation")
+    )
 
     df = df_grouped
     # df = df_labels.merge(df_grouped, left_on="image_id", right_on="Image Index", how="left")
-    df["annotation"] = df["annotation"].apply(lambda x: x if isinstance(x, dict) else {"labels": [], "bboxes": []})
+    df["annotation"] = df["annotation"].apply(
+        lambda x: x if isinstance(x, dict) else {"labels": [], "bboxes": []}
+    )
 
     return df
 
-def perform_data_augmentation(df, min_count = 5):
-    all_labels = [label for labels in df["annotation"].apply(lambda x: x["labels"]) for label in labels]
+
+def perform_data_augmentation(df, min_count=5):
+    all_labels = [
+        label
+        for labels in df["annotation"].apply(lambda x: x["labels"])
+        for label in labels
+    ]
     counts = Counter(all_labels)
 
     aug_rows = []
@@ -104,7 +133,9 @@ def perform_data_augmentation(df, min_count = 5):
         if count < min_count:
             subset = df[df["annotation"].apply(lambda x: cls in x["labels"])]
             needed = min_count - count
-            resampled = resample(subset, replace=True, n_samples=needed, random_state=42)
+            resampled = resample(
+                subset, replace=True, n_samples=needed, random_state=42
+            )
             aug_rows.append(resampled)
 
     if aug_rows:
@@ -125,23 +156,33 @@ def encode_targets_for_detection(df, class_to_idx):
             x, y, w, h = bbox
             boxes.append([x, y, x + w, y + h])  # [xmin, ymin, xmax, ymax]
             labels.append(class_to_idx[label])
-        targets.append({
-            "boxes": torch.tensor(boxes, dtype=torch.float32),
-            "labels": torch.tensor(labels, dtype=torch.int64)
-        })
+        targets.append(
+            {
+                "boxes": torch.tensor(boxes, dtype=torch.float32),
+                "labels": torch.tensor(labels, dtype=torch.int64),
+            }
+        )
     return targets
 
 
 def create_transforms():
-    train_transform = A.Compose([
-        A.Resize(512, 512),
-        # A.HorizontalFlip(p=0.5),
-        # A.Affine(rotate=(-5, 5), translate_percent=(0.05, 0.05), scale=(0.95, 1.05), p=0.7),
-        # A.RandomBrightnessContrast(p=0.1),
-        # A.GaussNoise(p=0.1),
-        A.Normalize(mean=(0.5,), std=(0.5,)),
-        ToTensorV2()
-    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=["class_labels"]))
+    train_transform = A.Compose(
+        [
+            A.Resize(512, 512),
+            # A.HorizontalFlip(p=0.5),
+            # A.Affine(
+            #     rotate=(-5, 5),
+            #     translate_percent=(0.05, 0.05),
+            #     scale=(0.95, 1.05),
+            #     p=0.7,
+            # ),
+            # A.RandomBrightnessContrast(p=0.1),
+            # A.GaussNoise(p=0.1),
+            A.Normalize(mean=(0.5,), std=(0.5,)),
+            ToTensorV2(),
+        ],
+        bbox_params=A.BboxParams(format="pascal_voc", label_fields=["class_labels"]),
+    )
 
     return train_transform
 
@@ -166,7 +207,9 @@ class ChestXrayDataset(Dataset):
         labels = target["labels"].tolist()
 
         if self.transform:
-            transformed = self.transform(image=image, bboxes=bboxes, class_labels=labels)
+            transformed = self.transform(
+                image=image, bboxes=bboxes, class_labels=labels
+            )
             image = transformed["image"]
             # On récupère les bboxes mises à jour
             bboxes = transformed["bboxes"]
@@ -174,7 +217,7 @@ class ChestXrayDataset(Dataset):
         # Attention : ici on doit reconstruire le `target` sous forme torch.Tensor
         final_target = {
             "boxes": torch.tensor(bboxes, dtype=torch.float32),
-            "labels": torch.tensor(labels, dtype=torch.int64)
+            "labels": torch.tensor(labels, dtype=torch.int64),
         }
 
         return image, final_target
@@ -186,14 +229,17 @@ def collate_fn(batch):
     return images, targets
 
 
-
 # === 7. Test ===
 if __name__ == "__main__":
     df = load_train_dataset()
     # df = perform_data_augmentation(df)
 
     # Obtenir classes et mapping
-    all_labels = [label for labels in df["annotation"].apply(lambda x: x["labels"]) for label in labels]
+    all_labels = [
+        label
+        for labels in df["annotation"].apply(lambda x: x["labels"])
+        for label in labels
+    ]
     classes = sorted(set(all_labels))
     class_to_idx = {cls: i + 1 for i, cls in enumerate(classes)}
 
@@ -209,6 +255,11 @@ if __name__ == "__main__":
     print("First image shape:", images[0].shape)
     print("First target:", targets[0])
 
-    show_image_with_bboxes(images, [item["boxes"] for item in targets], [item["labels"] for item in targets], classes)
+    show_image_with_bboxes(
+        images,
+        [item["boxes"] for item in targets],
+        [item["labels"] for item in targets],
+        classes,
+    )
 
     print("end")
