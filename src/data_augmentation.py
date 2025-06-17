@@ -46,11 +46,13 @@ def show_image_with_bboxes(images, bboxes, labels, classes):
         for bbox, label in zip(bboxes_i, labels_i):
             if isinstance(label, torch.Tensor):
                 label = label.item()
-            x, y, w, h = map(int, bbox)
+            
+            xmin, ymin, xmax, ymax = map(int, bbox)
+
             color = (0, 255, 0)  # Vert
 
-            cv2.rectangle(img_i, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(img_i, classes[int(label)-1], (x, y - 5),
+            cv2.rectangle(img_i, (xmin, ymin), (xmax, ymax), color, 2)
+            cv2.putText(img_i, classes[int(label)-1], (xmin, ymin - 5),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 1, lineType=cv2.LINE_AA)
 
         plt.subplot(2, (n + 1) // 2, i + 1)
@@ -135,10 +137,10 @@ def encode_targets_for_detection(df, class_to_idx):
 def create_transforms():
     train_transform = A.Compose([
         A.Resize(512, 512),
-        # A.HorizontalFlip(p=0.5),
-        # A.Affine(rotate=(-5, 5), translate_percent=(0.05, 0.05), scale=(0.95, 1.05), p=0.7),
-        # A.RandomBrightnessContrast(p=0.1),
-        # A.GaussNoise(p=0.1),
+        A.HorizontalFlip(p=0.5),
+        A.Affine(rotate=(-5, 5), translate_percent=(0.05, 0.05), scale=(0.95, 1.05), p=0.7),
+        A.RandomBrightnessContrast(p=0.1),
+        A.GaussNoise(p=0.1),
         A.Normalize(mean=(0.5,), std=(0.5,)),
         ToTensorV2()
     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=["class_labels"]))

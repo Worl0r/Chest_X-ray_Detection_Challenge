@@ -1,6 +1,10 @@
-train/
-test/
-.venv/
-runs/
-data/
-.DS_Store
+# Ignore images folder
+/images/
+
+# Also ignore any images folder in subdirectories
+**/images/
+
+# Ignore virtual environments
+venv/
+ENV/
+env/
