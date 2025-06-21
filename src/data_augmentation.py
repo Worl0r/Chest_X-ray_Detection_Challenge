@@ -50,7 +50,9 @@ def show_image_with_bboxes(images, bboxes, labels, classes):
         for bbox, label in zip(bboxes_i, labels_i):
             if isinstance(label, torch.Tensor):
                 label = label.item()
-            x, y, w, h = map(int, bbox)
+
+            xmin, ymin, xmax, ymax = map(int, bbox)
+
             color = (0, 255, 0)  # Vert
 
             cv2.rectangle(img_i, (x, y), (x + w, y + h), color, 2)
