@@ -91,7 +91,7 @@ def train(
 
         if mAP > best_auc:
             best_auc = mAP
-            torch.save(model.state_dict(), "best_model.pth")
+            torch.save(model, "best_model.pth")
             print("✅ Model saved.")
 
         early_stopping(mAP)
@@ -282,11 +282,11 @@ class EarlyStopping:
 if __name__ == "__main__":
     CSV_PATH = "train.csv"
     IMAGE_DIR = "train"
-    BATCH_SIZE = 2
+    BATCH_SIZE = 4
     EPOCHS = 10
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    learning_rate = 1e-3
+    learning_rate = 1e-4
     weight_decay = 1e-2
     gamma = 0.9
 
@@ -343,19 +343,20 @@ if __name__ == "__main__":
         optimizer,
         scheduler,
         DEVICE,
-        epochs=1,
+        epochs=5,
         patience=5,
     )
 
-    unfreeze_backbone(model)
-
-    train(
-        model,
-        train_loader,
-        val_loader,
-        optimizer,
-        scheduler,
-        DEVICE,
-        epochs=EPOCHS,
-        patience=5,
-    )
+    for step in [1, 2, 3]:
+        gradual_unfreeze(model, steps=step)
+        print(f"Unfreezing step {step} completed.")
+        train(
+            model,
+            train_loader,
+            val_loader,
+            optimizer,
+            scheduler,
+            DEVICE,
+            epochs=3,
+            patience=5,
+        )

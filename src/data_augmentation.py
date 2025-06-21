@@ -120,13 +120,15 @@ def load_train_dataset():
     return df
 
 
-def perform_data_augmentation(df, min_count=5):
+def perform_data_augmentation(df):
     all_labels = [
         label
         for labels in df["annotation"].apply(lambda x: x["labels"])
         for label in labels
     ]
     counts = Counter(all_labels)
+
+    min_count = max([value for value in counts.values()])
 
     aug_rows = []
     for cls, count in counts.items():
@@ -169,15 +171,15 @@ def create_transforms():
     train_transform = A.Compose(
         [
             A.Resize(512, 512),
-            # A.HorizontalFlip(p=0.5),
-            # A.Affine(
-            #     rotate=(-5, 5),
-            #     translate_percent=(0.05, 0.05),
-            #     scale=(0.95, 1.05),
-            #     p=0.7,
-            # ),
-            # A.RandomBrightnessContrast(p=0.1),
-            # A.GaussNoise(p=0.1),
+            A.HorizontalFlip(p=0.5),
+            A.Affine(
+                rotate=(-5, 5),
+                translate_percent=(0.05, 0.05),
+                scale=(0.95, 1.05),
+                p=0.7,
+            ),
+            A.RandomBrightnessContrast(p=0.1),
+            A.GaussNoise(p=0.1),
             A.Normalize(mean=(0.5,), std=(0.5,)),
             ToTensorV2(),
         ],
@@ -232,7 +234,7 @@ def collate_fn(batch):
 # === 7. Test ===
 if __name__ == "__main__":
     df = load_train_dataset()
-    # df = perform_data_augmentation(df)
+    df = perform_data_augmentation(df)
 
     # Obtenir classes et mapping
     all_labels = [
