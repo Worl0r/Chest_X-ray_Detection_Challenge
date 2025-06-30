@@ -9,12 +9,38 @@ dependencies = [
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.3",
     "monai>=1.4.0",
+    "opencv-python-headless>=4.11.0.86",
     "opencv-python>=4.11.0.86",
     "pandas>=2.2.3",
+    "pycocotools>=2.0.10",
     "ruff>=0.11.11",
     "scikit-learn>=1.6.1",
+    "seaborn>=0.13.2",
     "tensorboard>=2.19.0",
     "torch>=2.7.0",
     "torchvision>=0.22.0",
     "tqdm>=4.67.1",
+    "ultralytics>=8.3.161",
 ]
+
+[tool.ruff]
+# Set the maximum line length to 79.
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+
+extend-select = ["E501"]

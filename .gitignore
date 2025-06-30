@@ -8,3 +8,11 @@
 venv/
 ENV/
 env/
+
+train/
+test/
+
+**/yoko_cxr/
+
+**/runs/
+**/splits/

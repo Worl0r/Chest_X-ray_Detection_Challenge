@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from collections import Counter
 from sklearn.utils import resample
-from sklearn.preprocessing import MultiLabelBinarizer
 
 import cv2
 import albumentations as A
@@ -20,7 +19,8 @@ matplotlib.use("WebAgg")
 
 def show_image_with_bboxes(images, bboxes, labels, classes):
     """
-    Affiche une image avec ses bounding boxes et labels (format coco : [x, y, w, h] en pixels).
+    Affiche une image avec ses bounding boxes et labels
+     (format coco : [x, y, w, h] en pixels).
     """
     n = len(images)
     plt.figure(figsize=(16, 8))
@@ -41,13 +41,13 @@ def show_image_with_bboxes(images, bboxes, labels, classes):
         # Si 1 canal → RGB
         if img_i.ndim == 2:
             img_i = cv2.cvtColor(img_i, cv2.COLOR_GRAY2RGB)
-        elif img_i.shape[2] == 1:
+        if img_i.shape[2] == 1:
             img_i = cv2.cvtColor(img_i, cv2.COLOR_GRAY2RGB)
 
         img_i = np.ascontiguousarray(img_i)
 
         # Dessiner chaque bbox
-        for bbox, label in zip(bboxes_i, labels_i):
+        for bbox, label in zip(bboxes_i, labels_i, strict=True):
             if isinstance(label, torch.Tensor):
                 label = label.item()
 
@@ -55,11 +55,11 @@ def show_image_with_bboxes(images, bboxes, labels, classes):
 
             color = (0, 255, 0)  # Vert
 
-            cv2.rectangle(img_i, (x, y), (x + w, y + h), color, 2)
+            cv2.rectangle(img_i, (xmin, ymin), (xmax, ymax), color, 2)
             cv2.putText(
                 img_i,
                 classes[int(label) - 1],
-                (x, y - 5),
+                (xmin, ymin - 5),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.6,
                 color,
@@ -77,14 +77,7 @@ def show_image_with_bboxes(images, bboxes, labels, classes):
 
 def list_files_in_folder(folder_path, extensions=None):
     """
-    Liste tous les fichiers dans un dossier, avec une option pour filtrer par extensions.
-
-    Args:
-        folder_path (str): Chemin du dossier.
-        extensions (tuple[str], optional): Extensions à garder, ex: ('.jpg', '.png'). Si None, garde tout.
-
-    Returns:
-        List[str]: Liste des chemins des fichiers.
+    List all the files in a folder with specific extensions.
     """
     files = []
     for root, _, filenames in os.walk(folder_path):
@@ -94,13 +87,10 @@ def list_files_in_folder(folder_path, extensions=None):
     return files
 
 
-# === 1. Charger les labels & bboxes ===
-
-
 def load_train_dataset():
     df_annots = pd.read_csv(
-        "train.csv"
-    )  # colonnes: Image Index, Finding Label, Bbox [x, y, w, h]
+        "data/train.csv"
+    )  # Columns: Image Index, Finding Label, Bbox [x, y, w, h]
 
     df_grouped = (
         df_annots.groupby("Image Index")
@@ -113,13 +103,11 @@ def load_train_dataset():
         .reset_index(name="annotation")
     )
 
-    df = df_grouped
-    # df = df_labels.merge(df_grouped, left_on="image_id", right_on="Image Index", how="left")
-    df["annotation"] = df["annotation"].apply(
+    df_grouped["annotation"] = df_grouped["annotation"].apply(
         lambda x: x if isinstance(x, dict) else {"labels": [], "bboxes": []}
     )
 
-    return df
+    return df_grouped
 
 
 def perform_data_augmentation(df):
@@ -156,7 +144,7 @@ def encode_targets_for_detection(df, class_to_idx):
     for ann in df["annotation"]:
         boxes = []
         labels = []
-        for bbox, label in zip(ann["bboxes"], ann["labels"]):
+        for bbox, label in zip(ann["bboxes"], ann["labels"], strict=True):
             x, y, w, h = bbox
             boxes.append([x, y, x + w, y + h])  # [xmin, ymin, xmax, ymax]
             labels.append(class_to_idx[label])
@@ -183,9 +171,12 @@ def create_transforms():
             A.RandomBrightnessContrast(p=0.1),
             A.GaussNoise(p=0.1),
             A.Normalize(mean=(0.5,), std=(0.5,)),
+            A.RandomScale(scale_limit=0.1, p=0.5),
             ToTensorV2(),
         ],
-        bbox_params=A.BboxParams(format="pascal_voc", label_fields=["class_labels"]),
+        bbox_params=A.BboxParams(
+            format="pascal_voc", label_fields=["class_labels"]
+        ),
     )
 
     return train_transform
@@ -218,7 +209,8 @@ class ChestXrayDataset(Dataset):
             # On récupère les bboxes mises à jour
             bboxes = transformed["bboxes"]
 
-        # Attention : ici on doit reconstruire le `target` sous forme torch.Tensor
+        # Attention : ici on doit reconstruire le `target`
+        # sous forme torch.Tensor
         final_target = {
             "boxes": torch.tensor(bboxes, dtype=torch.float32),
             "labels": torch.tensor(labels, dtype=torch.int64),
@@ -233,8 +225,10 @@ def collate_fn(batch):
     return images, targets
 
 
-# === 7. Test ===
 if __name__ == "__main__":
+    # Configuration
+    batch_size = 4
+
     df = load_train_dataset()
     df = perform_data_augmentation(df)
 
@@ -252,7 +246,9 @@ if __name__ == "__main__":
     transform = create_transforms()
 
     dataset = ChestXrayDataset(df, targets, transform=transform)
-    loader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
+    loader = DataLoader(
+        dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn
+    )
 
     images, targets = next(iter(loader))
     print("Image batch size:", len(images))
