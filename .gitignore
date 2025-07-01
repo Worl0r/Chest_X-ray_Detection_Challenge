@@ -12,7 +12,7 @@ env/
 train/
 test/
 
-**/yoko_cxr/
+**/yolo_cxr/
 
 **/runs/
 **/splits/
